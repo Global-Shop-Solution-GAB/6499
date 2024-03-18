@@ -1,0 +1,116 @@
+﻿Program.Sub.Preflight.Start
+V.Global.sError.Declare(String)
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Author: Arturo Almaguer
+'Date: October 5th 2021
+'Customer: Franklin Group, quote number 12831
+'This program saves SO lines to custom DB, so GCG_6499 script will be able to identify only the lines to trigger the WF. 
+
+Function.Intrinsic.UI.UsePixels ' Allows you to use Pixels instead of Twips throughout
+
+F.Intrinsic.Control.Try
+
+	F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+		
+		F.Intrinsic.Control.Case(12010)
+			'SO lines screen populate hook
+			F.Intrinsic.Control.CallSub("HiddenControls")
+			
+		F.Intrinsic.Control.Case(12230)
+			'SO lines screen post Save hook
+			F.Intrinsic.Control.CallSub("CheckTable")
+			F.Intrinsic.Control.CallSub("SavetoDB")
+			V.Passed.GAB-CHK-1.Set("N") 
+			
+	F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.Catch
+
+	F.Intrinsic.Control.CallSub(CatchError)
+	
+F.Intrinsic.Control.EndTry
+
+Program.Sub.Main.End
+Program.Sub.HiddenControls.Start
+F.Intrinsic.Control.Try
+
+	F.Intrinsic.Control.If(V.Caller.Switches, =, "N", "OR", V.Caller.Switches, =, "O")  
+	
+		F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-CHK-1, "HIDE", 0) 'True is 1, False 0
+		F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-CHK-1, "LOCK", 0)
+		F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-LBL-1, "HIDE", 0)
+		V.Passed.GAB-LBL-1.Set("Trigger WF") 
+		
+		F.Intrinsic.Variable.SetProperty("GAB-CHK-1", "PL", 420) 'PL is horizontal position
+		F.Intrinsic.Variable.SetProperty("GAB-CHK-1", "PT", 83) 'PT is vertical position
+		F.Intrinsic.Variable.SetProperty("GAB-LBL-1", "PL", 415)
+		F.Intrinsic.Variable.SetProperty("GAB-LBL-1", "PT", 65) 
+	
+	F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+
+	F.Intrinsic.Control.CallSub(CatchError)
+	
+F.Intrinsic.Control.EndTry
+
+Program.Sub.HiddenControls.End
+Program.Sub.CheckTable.Start
+'This subroutine checks if table exists in DB, creates it if it doesn't
+
+F.Intrinsic.Control.Try
+
+	V.Local.bExists.Declare(Boolean)
+	
+	F.ODBC.Connection!Con.OpenCompanyConnection
+	F.ODBC.Connection!Con.TableExists("GCG_6499", V.Local.bExists)
+		F.Intrinsic.Control.If(V.Local.bExists, =, False)
+			F.ODBC.Connection!Con.Execute("CREATE TABLE GCG_6499 (ORDER_NO CHAR(7), ORDER_LINE CHAR(4), WF_FLAG CHAR(1));")
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Connection!Con.Close
+
+F.Intrinsic.Control.Catch
+
+	F.Intrinsic.Control.CallSub(CatchError)
+	
+F.Intrinsic.Control.EndTry
+Program.Sub.CheckTable.End
+Program.Sub.SavetoDB.Start
+F.Intrinsic.Control.Try
+
+	V.Local.sOrderNo.Declare(String)
+	V.Local.sOrderLine.Declare(String)
+	V.Local.sSQL.Declare(String)
+	
+	V.Local.sOrderNo.Set(V.Passed.000060)
+	F.Intrinsic.String.LPad(V.Local.sOrderNo,"0", 7, V.Local.sOrderNo)
+	
+	V.Local.sOrderLine.Set(V.Passed.000051)
+	F.Intrinsic.String.LPad(V.Local.sOrderLine,"0", 3, V.Local.sOrderLine)
+	F.Intrinsic.String.Build("{0}0", V.Local.sOrderLine, V.Local.sOrderLine)
+	
+	F.ODBC.Connection!Con.OpenCompanyConnection
+	F.Intrinsic.String.Build("insert into GCG_6499 (ORDER_NO, ORDER_LINE, WF_FLAG) values('{0}','{1}','{2}');", V.Local.sOrderNo, V.Local.sOrderLine, V.Passed.GAB-CHK-1, V.Local.sSQL)
+	F.ODBC.Connection!Con.Execute(V.Local.sSQL)
+	F.ODBC.Connection!Con.Close
+	
+F.Intrinsic.Control.Catch
+
+	F.Intrinsic.Control.CallSub(CatchError)
+	
+F.Intrinsic.Control.EndTry
+
+Program.Sub.SavetoDB.End
+Program.Sub.CatchError.Start
+F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}", V.Ambient.ScriptPath, V.Ambient.Newline, V.Ambient.SubroutineCalledFrom, V.Ambient.ErrorNumber, V.Ambient.ErrorDescription, V.Ambient.GABVersion, V.Global.sError) 
+F.Intrinsic.UI.Msgbox(V.Global.sError)
+F.Intrinsic.Control.End()
+Program.Sub.CatchError.End
+
+Program.Sub.Comments.Start
+${$5$}$3.0.0.0$}$1
+${$6$}$apadilla$}$20211011161105897$}$Lag9STqBJOmNXSbd5+msRcBWPGz0aFqSwHruISZ+s7ynmdU+KGzPM02xRaM9y3sFrwqvFI4xyxYFQ1kF9H93LQ==
+Program.Sub.Comments.End
